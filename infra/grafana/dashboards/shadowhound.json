@@ -1,0 +1,52 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "panels": [
+    {
+      "title": "API Logs — Recent Entries",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "" },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "expr": "{service_name=\"shadowhound-threat-hunter\"}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Hunt Events",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "" },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 10 },
+      "targets": [
+        {
+          "expr": "{service_name=\"shadowhound-threat-hunter\"} |= \"hunt\"",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "title": "Error Logs",
+      "type": "logs",
+      "datasource": { "type": "loki", "uid": "" },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 10 },
+      "targets": [
+        {
+          "expr": "{service_name=\"shadowhound-threat-hunter\"} |= \"error\"",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["shadowhound"],
+  "templating": { "list": [] },
+  "time": { "from": "now-6h", "to": "now" },
+  "title": "ShadowHound Overview",
+  "uid": "shadowhound-overview"
+}

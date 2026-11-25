@@ -1,0 +1,131 @@
+title: Persistence via Registry Run Keys and Startup
+description: |
+  Hunt for adversaries establishing persistence through Windows registry
+  Run/RunOnce keys, startup folder modifications, and scheduled task
+  creation. These techniques are among the most common persistence
+  mechanisms used by malware and APT groups.
+author: ShadowHound Playbook Library
+created: 2024-02-15
+version: "1.0"
+
+tactics:
+  - Persistence
+  - Privilege Escalation
+
+tags:
+  - attack.t1547.001
+  - attack.t1053.005
+  - attack.t1547.009
+  - persistence
+  - registry
+  - startup
+  - windows
+
+mitre_attack:
+  techniques:
+    - id: T1547.001
+      name: "Registry Run Keys / Startup Folder"
+      description: Adversary adds entries to Run keys or places files in startup folder
+    - id: T1053.005
+      name: "Scheduled Task"
+      description: Adversary creates scheduled tasks for persistence
+    - id: T1547.009
+      name: "Shortcut Modification"
+      description: Adversary modifies shortcuts in startup folder
+
+severity: high
+confidence_baseline: 55
+
+data_sources:
+  - crowdstrike
+  - sentinelone
+  - defender
+  - splunk
+  - elastic
+
+indicators:
+  registry_keys:
+    - HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
+    - HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce
+    - HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run
+    - HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\RunOnce
+    - HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\RunServices
+    - HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer\Run
+
+  startup_paths:
+    - C:\Users\*\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Startup
+    - C:\ProgramData\Microsoft\Windows\Start Menu\Programs\StartUp
+
+  suspicious_schtasks:
+    - schtasks /create /sc onlogon
+    - schtasks /create /sc onstart
+    - schtasks /create /sc minute
+
+query_templates:
+  splunk: |
+    search index=endpoint
+      (EventType="RegistryEvent"
+       AND (TargetObject="*\\CurrentVersion\\Run*"
+            OR TargetObject="*\\CurrentVersion\\RunOnce*"
+            OR TargetObject="*\\Policies\\Explorer\\Run*"))
+      OR (process_name="schtasks.exe" AND CommandLine="*create*"
+          AND (CommandLine="*onlogon*" OR CommandLine="*onstart*" OR CommandLine="*minute*"))
+    | stats count values(TargetObject) as registry_keys values(CommandLine) as commands
+      by host, user, process_name, _time
+    | sort -_time
+
+  kql: |
+    union
+      (DeviceRegistryEvents
+      | where Timestamp >= ago(7d)
+      | where RegistryKey has_any ("CurrentVersion\\Run", "CurrentVersion\\RunOnce",
+                                    "Policies\\Explorer\\Run")
+      | where ActionType == "RegistryValueSet"
+      | project Timestamp, DeviceName, InitiatingProcessFileName,
+                RegistryKey, RegistryValueName, RegistryValueData),
+      (DeviceProcessEvents
+      | where Timestamp >= ago(7d)
+      | where FileName =~ "schtasks.exe"
+      | where ProcessCommandLine has "create"
+      | where ProcessCommandLine has_any ("onlogon", "onstart", "minute")
+      | project Timestamp, DeviceName, AccountName, ProcessCommandLine)
+    | sort by Timestamp desc
+
+  elastic: |
+    {
+      "query": {
+        "bool": {
+          "should": [
+            {"bool": {"must": [
+              {"term": {"event.category": "registry"}},
+              {"bool": {"should": [
+                {"wildcard": {"registry.path": "*CurrentVersion\\\\Run*"}},
+                {"wildcard": {"registry.path": "*CurrentVersion\\\\RunOnce*"}},
+                {"wildcard": {"registry.path": "*Policies\\\\Explorer\\\\Run*"}}
+              ]}}
+            ]}},
+            {"bool": {"must": [
+              {"term": {"process.name": "schtasks.exe"}},
+              {"wildcard": {"process.command_line": "*create*"}},
+              {"bool": {"should": [
+                {"wildcard": {"process.command_line": "*onlogon*"}},
+                {"wildcard": {"process.command_line": "*onstart*"}},
+                {"wildcard": {"process.command_line": "*minute*"}}
+              ]}}
+            ]}}
+          ],
+          "minimum_should_match": 1,
+          "filter": [
+            {"range": {"@timestamp": {"gte": "now-7d"}}}
+          ]
+        }
+      },
+      "size": 500
+    }
+
+response_actions:
+  - Investigate the origin process that created the persistence mechanism
+  - Determine if the persistence entry points to a known-good or unknown binary
+  - Check the binary hash against threat intelligence feeds
+  - Remove malicious registry entries or scheduled tasks
+  - Scan the host for additional compromise indicators

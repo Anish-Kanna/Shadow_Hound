@@ -1,0 +1,112 @@
+title: Phishing-Based Initial Access Detection
+description: |
+  Hunt for signs of successful phishing-based initial access. Covers
+  suspicious Office macro execution, child processes spawned from email
+  clients and Office applications, downloaded payload execution, and
+  HTML smuggling indicators.
+author: ShadowHound Playbook Library
+created: 2024-02-01
+version: "1.0"
+
+tactics:
+  - Initial Access
+  - Execution
+
+tags:
+  - attack.t1566.001
+  - attack.t1204.002
+  - attack.t1059.001
+  - phishing
+  - macro
+  - office
+
+mitre_attack:
+  techniques:
+    - id: T1566.001
+      name: "Spearphishing Attachment"
+      description: Adversary sends email with malicious attachment
+    - id: T1204.002
+      name: "Malicious File"
+      description: User opens a malicious file delivered via email
+    - id: T1059.001
+      name: "PowerShell"
+      description: Post-exploitation via PowerShell from Office process
+
+severity: high
+confidence_baseline: 60
+
+data_sources:
+  - crowdstrike
+  - sentinelone
+  - defender
+  - splunk
+  - elastic
+
+indicators:
+  suspicious_parent_child:
+    - parent=WINWORD.EXE child=cmd.exe
+    - parent=WINWORD.EXE child=powershell.exe
+    - parent=WINWORD.EXE child=wscript.exe
+    - parent=EXCEL.EXE child=cmd.exe
+    - parent=EXCEL.EXE child=powershell.exe
+    - parent=OUTLOOK.EXE child=powershell.exe
+    - parent=mshta.exe child=powershell.exe
+
+  suspicious_extensions:
+    - ".docm"
+    - ".xlsm"
+    - ".pptm"
+    - ".hta"
+    - ".js"
+    - ".vbs"
+    - ".wsf"
+    - ".iso"
+    - ".img"
+
+query_templates:
+  splunk: |
+    search index=endpoint
+      (parent_process_name IN ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "OUTLOOK.EXE", "mshta.exe")
+       AND process_name IN ("cmd.exe", "powershell.exe", "wscript.exe", "cscript.exe",
+                            "mshta.exe", "certutil.exe", "bitsadmin.exe", "rundll32.exe"))
+    | stats count values(process_name) as child_processes values(CommandLine) as commands
+      by host, user, parent_process_name, _time
+    | sort -_time
+
+  kql: |
+    DeviceProcessEvents
+    | where Timestamp >= ago(7d)
+    | where InitiatingProcessFileName in~ ("WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "OUTLOOK.EXE", "mshta.exe")
+    | where FileName in~ ("cmd.exe", "powershell.exe", "wscript.exe", "cscript.exe",
+                           "mshta.exe", "certutil.exe", "bitsadmin.exe", "rundll32.exe")
+    | project Timestamp, DeviceName, AccountName, InitiatingProcessFileName,
+              FileName, ProcessCommandLine
+    | sort by Timestamp desc
+
+  elastic: |
+    {
+      "query": {
+        "bool": {
+          "must": [
+            {"terms": {"process.parent.name": [
+              "WINWORD.EXE", "EXCEL.EXE", "POWERPNT.EXE", "OUTLOOK.EXE", "mshta.exe"
+            ]}},
+            {"terms": {"process.name": [
+              "cmd.exe", "powershell.exe", "wscript.exe", "cscript.exe",
+              "mshta.exe", "certutil.exe", "bitsadmin.exe", "rundll32.exe"
+            ]}}
+          ],
+          "filter": [
+            {"range": {"@timestamp": {"gte": "now-7d"}}}
+          ]
+        }
+      },
+      "size": 500
+    }
+
+response_actions:
+  - Quarantine the original email and attachment
+  - Isolate the affected endpoint
+  - Extract IOCs from the attachment for blocking
+  - Check for lateral movement from the compromised host
+  - Reset credentials for the affected user

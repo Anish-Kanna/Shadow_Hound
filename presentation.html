@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ShadowHound — AI-Powered Threat Hunting Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg-primary: #0a0e1a;
+    --bg-secondary: #111827;
+    --bg-card: rgba(17, 24, 39, 0.7);
+    --accent-blue: #3b82f6;
+    --accent-cyan: #06b6d4;
+    --accent-purple: #8b5cf6;
+    --accent-red: #ef4444;
+    --accent-green: #10b981;
+    --accent-amber: #f59e0b;
+    --text-primary: #f1f5f9;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --border: rgba(148, 163, 184, 0.1);
+    --gradient-hero: linear-gradient(135deg, #3b82f6, #8b5cf6, #06b6d4);
+    --gradient-danger: linear-gradient(135deg, #ef4444, #f97316);
+    --gradient-success: linear-gradient(135deg, #10b981, #06b6d4);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    font-family: 'Inter', -apple-system, sans-serif;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+  }
+
+  /* ── Slide System ─────────────────────────────────────────────── */
+  .slide {
+    display: none;
+    width: 100vw;
+    height: 100vh;
+    padding: 48px 64px;
+    position: relative;
+    overflow: hidden;
+  }
+  .slide.active { display: flex; flex-direction: column; }
+
+  .slide::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -30%;
+    width: 800px;
+    height: 800px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(59,130,246,0.06) 0%, transparent 70%);
+    pointer-events: none;
+  }
+
+  .slide-number {
+    position: fixed;
+    bottom: 24px;
+    right: 40px;
+    font-size: 14px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    z-index: 100;
+  }
+
+  /* ── Navigation ────────────────────────────────────────────────── */
+  .nav-hint {
+    position: fixed;
+    bottom: 24px;
+    left: 40px;
+    font-size: 12px;
+    color: var(--text-muted);
+    z-index: 100;
+    opacity: 0.6;
+  }
+
+  /* ── Typography ────────────────────────────────────────────────── */
+  h1 {
+    font-size: 52px;
+    font-weight: 800;
+    line-height: 1.1;
+    letter-spacing: -1.5px;
+  }
+  h2 {
+    font-size: 38px;
+    font-weight: 700;
+    letter-spacing: -1px;
+    margin-bottom: 24px;
+  }
+  h3 {
+    font-size: 22px;
+    font-weight: 600;
+    margin-bottom: 12px;
+    color: var(--accent-cyan);
+  }
+  p, li {
+    font-size: 20px;
+    line-height: 1.6;
+    color: var(--text-secondary);
+  }
+
+  .gradient-text {
+    background: var(--gradient-hero);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .subtitle {
+    font-size: 24px;
+    color: var(--text-secondary);
+    font-weight: 400;
+    margin-top: 12px;
+  }
+
+  .tag {
+    display: inline-block;
+    padding: 6px 16px;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    margin: 4px;
+  }
+  .tag-blue { background: rgba(59,130,246,0.15); color: var(--accent-blue); border: 1px solid rgba(59,130,246,0.3); }
+  .tag-purple { background: rgba(139,92,246,0.15); color: var(--accent-purple); border: 1px solid rgba(139,92,246,0.3); }
+  .tag-cyan { background: rgba(6,182,212,0.15); color: var(--accent-cyan); border: 1px solid rgba(6,182,212,0.3); }
+  .tag-green { background: rgba(16,185,129,0.15); color: var(--accent-green); border: 1px solid rgba(16,185,129,0.3); }
+  .tag-amber { background: rgba(245,158,11,0.15); color: var(--accent-amber); border: 1px solid rgba(245,158,11,0.3); }
+  .tag-red { background: rgba(239,68,68,0.15); color: var(--accent-red); border: 1px solid rgba(239,68,68,0.3); }
+
+  /* ── Cards & Grids ─────────────────────────────────────────────── */
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    backdrop-filter: blur(12px);
+  }
+
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+  .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+
+  .flex-center { display: flex; align-items: center; justify-content: center; flex: 1; }
+  .flex-col { display: flex; flex-direction: column; }
+  .gap-16 { gap: 16px; }
+  .gap-24 { gap: 24px; }
+  .mt-auto { margin-top: auto; }
+  .mt-24 { margin-top: 24px; }
+  .mt-16 { margin-top: 16px; }
+  .flex-1 { flex: 1; }
+
+  /* ── Stats ──────────────────────────────────────────────────────── */
+  .stat-number {
+    font-size: 48px;
+    font-weight: 800;
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 14px;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-top: 6px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+  }
+
+  /* ── Table ──────────────────────────────────────────────────────── */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 16px;
+  }
+  th {
+    text-align: left;
+    padding: 12px 16px;
+    color: var(--accent-cyan);
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-secondary);
+    font-size: 16px;
+    vertical-align: top;
+  }
+  tr:last-child td { border-bottom: none; }
+
+  /* ── Code ───────────────────────────────────────────────────────── */
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    background: rgba(59,130,246,0.1);
+    padding: 2px 8px;
+    border-radius: 6px;
+    color: var(--accent-cyan);
+  }
+
+  pre {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 15px;
+    line-height: 1.6;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    overflow-x: auto;
+    color: var(--text-secondary);
+  }
+
+  /* ── Phase Timeline ────────────────────────────────────────────── */
+  .phase-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+    padding: 12px 0;
+  }
+  .phase-num {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 16px;
+    color: white;
+  }
+  .phase-content h4 {
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+  }
+  .phase-content p {
+    font-size: 15px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  /* ── Highlight box ─────────────────────────────────────────────── */
+  .highlight-box {
+    border-left: 4px solid;
+    padding: 16px 20px;
+    border-radius: 0 12px 12px 0;
+    background: rgba(0,0,0,0.3);
+  }
+  .highlight-box.blue { border-color: var(--accent-blue); }
+  .highlight-box.red { border-color: var(--accent-red); }
+  .highlight-box.green { border-color: var(--accent-green); }
+  .highlight-box.amber { border-color: var(--accent-amber); }
+
+  /* ── List styles ───────────────────────────────────────────────── */
+  ul { list-style: none; padding: 0; }
+  ul li {
+    padding: 6px 0;
+    padding-left: 24px;
+    position: relative;
+  }
+  ul li::before {
+    content: '▸';
+    position: absolute;
+    left: 0;
+    color: var(--accent-cyan);
+    font-weight: 600;
+  }
+
+  /* ── Icon badges ───────────────────────────────────────────────── */
+  .icon-badge {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    margin-bottom: 12px;
+  }
+
+  /* ── Animations ────────────────────────────────────────────────── */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(30px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .slide.active > * {
+    animation: fadeInUp 0.5s ease-out forwards;
+  }
+  .slide.active > *:nth-child(2) { animation-delay: 0.1s; }
+  .slide.active > *:nth-child(3) { animation-delay: 0.2s; }
+  .slide.active > *:nth-child(4) { animation-delay: 0.3s; }
+
+  /* ── Progress bar ──────────────────────────────────────────────── */
+  .progress-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 3px;
+    background: var(--gradient-hero);
+    transition: width 0.3s ease;
+    z-index: 200;
+  }
+
+  /* ── Architecture diagram ──────────────────────────────────────── */
+  .arch-flow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+  }
+  .arch-box {
+    padding: 12px 28px;
+    border-radius: 10px;
+    font-weight: 600;
+    font-size: 15px;
+    text-align: center;
+    min-width: 280px;
+    border: 1px solid var(--border);
+  }
+  .arch-arrow {
+    color: var(--text-muted);
+    font-size: 20px;
+  }
+  .arch-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .arch-box-sm {
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+
+<div class="progress-bar" id="progressBar"></div>
+<div class="nav-hint">← → Arrow keys to navigate &nbsp;|&nbsp; F for fullscreen</div>
+<div class="slide-number" id="slideNumber"></div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SLIDE 1 — TITLE
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="slide active" id="slide-1">
+  <div style="flex:1; display:flex; flex-direction:column; justify-content:center;">
+    <div style="margin-bottom: 16px;">
+      <span class="tag tag-blue">PS281</span>
+      <span class="tag tag-purple">AI / Cybersecurity</span>
+      <span class="tag tag-cyan">Agentic Systems</span>
+    </div>
+    <h1 style="font-size:60px;">
+      <span class="gradient-text">ShadowHound</span>
+    </h1>
+    <h1 style="font-size: 36px; font-weight: 500; color: var(--text-secondary); margin-top: 8px;">
+      AI-Powered Threat Hunting Agent
+    </h1>
+    <p class="subtitle" style="margin-top: 20px; max-width: 680px;">
+      An agentic AI system for hypothesis-driven threat hunting using<br>
+      MITRE ATT&CK framework and Google Gemini LLM
+    </p>
+    <div style="margin-top: 40px; display: flex; gap: 12px; flex-wrap: wrap;">
+      <span class="tag tag-blue">Python 3.12</span>
+      <span class="tag tag-purple">FastAPI</span>
+      <span class="tag tag-cyan">Google Gemini</span>
+      <span class="tag tag-green">Celery + Redis</span>
+      <span class="tag tag-amber">React 18</span>
+      <span class="tag tag-red">PostgreSQL</span>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SLIDE 2 — PROBLEM STATEMENT
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-2">
+  <h2>Problem Statement</h2>
+  <p style="font-size:18px; max-width: 800px; margin-bottom: 28px;">
+    Modern Security Operations Centers are overwhelmed. Proactive threat hunting is critical — but manual, expensive, and impossible to scale.
+  </p>
+  <div class="grid-3" style="flex:1;">
+    <div class="card" style="text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+      <div class="stat-number gradient-text">11,000+</div>
+      <div class="stat-label">Alerts per day per SOC</div>
+      <p style="font-size:14px; margin-top: 8px;">70% are false positives</p>
+    </div>
+    <div class="card" style="text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+      <div class="stat-number" style="color: var(--accent-red);">3.4M</div>
+      <div class="stat-label">Cybersecurity talent gap</div>
+      <p style="font-size:14px; margin-top: 8px;">ISC² 2023 Workforce Study</p>
+    </div>
+    <div class="card" style="text-align:center; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+      <div class="stat-number" style="color: var(--accent-amber);">204 days</div>
+      <div class="stat-label">Average dwell time</div>
+      <p style="font-size:14px; margin-top: 8px;">IBM X-Force 2023</p>
+    </div>
+  </div>
+  <div class="grid-2 mt-24">
+    <div class="highlight-box red">
+      <h3 style="margin-bottom: 4px;">⚠ The Core Pain</h3>
+      <p style="font-size:16px;">A single manual threat hunt takes <strong style="color:var(--accent-red)">4–8 hours</strong> of a senior analyst's time — formulating hypotheses, writing queries across 6–10 different platforms, correlating evidence</p>
+    </div>
+    <div class="highlight-box green">
+      <h3 style="margin-bottom: 4px;">✦ Our Solution</h3>
+      <p style="font-size:16px;">ShadowHound <strong style="color:var(--accent-green)">automates the entire hunt loop</strong> — hypothesis generation, query planning, evidence correlation — with human-in-the-loop governance</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SLIDE 3 — OBJECTIVES
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-3">
+  <h2>Objectives</h2>
+  <div class="grid-3" style="flex:1; align-content: start;">
+    <div class="card">
+      <div class="icon-badge" style="background: rgba(59,130,246,0.15);">🧠</div>
+      <h3 style="font-size:17px;">Automate Hypothesis Generation</h3>
+      <p style="font-size:15px;">Use Google Gemini LLM to generate ranked, MITRE ATT&CK-mapped threat hypotheses from analyst triggers or intel alerts</p>
+    </div>
+    <div class="card">
+      <div class="icon-badge" style="background: rgba(139,92,246,0.15);">📝</div>
+      <h3 style="font-size:17px;">Cross-Platform Query Planning</h3>
+      <p style="font-size:15px;">Auto-generate queries in KQL (Microsoft), SPL (Splunk), FQL (CrowdStrike) for 10 integrated data sources</p>
+    </div>
+    <div class="card">
+      <div class="icon-badge" style="background: rgba(16,185,129,0.15);">👤</div>
+      <h3 style="font-size:17px;">Human-in-the-Loop Approval</h3>
+      <p style="font-size:15px;">No query executes on production systems without explicit analyst approval — governance & safety first</p>
+    </div>
+    <div class="card">
+      <div class="icon-badge" style="background: rgba(6,182,212,0.15);">🔍</div>
+      <h3 style="font-size:17px;">Evidence Aggregation & Scoring</h3>
+      <p style="font-size:15px;">LLM-powered correlation of multi-source evidence with confidence scoring (0–100) and IOC extraction</p>
+    </div>
+    <div class="card">
+      <div class="icon-badge" style="background: rgba(245,158,11,0.15);">🔄</div>
+      <h3 style="font-size:17px;">Iterative OODA Hunt Loop</h3>
+      <p style="font-size:15px;">Adaptive loop that refines hypotheses based on accumulated evidence until confidence thresholds are met</p>
+    </div>
+    <div class="card">
+      <div class="icon-badge" style="background: rgba(239,68,68,0.15);">📊</div>
+      <h3 style="font-size:17px;">Automated Hunt Reports</h3>
+      <p style="font-size:15px;">Structured reports (PDF/JSON/MD) with MITRE mapping, threat timelines, IOC lists, and analyst recommendations</p>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SLIDE 4 — LITERATURE SURVEY
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-4">
+  <h2>Literature Survey</h2>
+  <div style="flex:1; overflow: auto;">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:5%">#</th>
+          <th style="width:28%">Existing Work</th>
+          <th style="width:32%">What It Does</th>
+          <th style="width:35%">Limitation (Gap)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td style="color:var(--text-primary); font-weight:500;">Microsoft Copilot for Security <span class="tag tag-blue" style="font-size:11px; padding: 2px 8px;">2024</span></td>
+          <td>LLM-powered assistant for Azure Sentinel investigations</td>
+          <td style="color:var(--accent-amber)">Vendor-locked to Microsoft; reactive, not proactive hunting</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td style="color:var(--text-primary); font-weight:500;">Sqrrl / AWS (Oltsik, 2017)</td>
+          <td>Threat hunting platform with link analysis &amp; graph queries</td>
+          <td style="color:var(--accent-amber)">No LLM integration; purely manual hypothesis formulation</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td style="color:var(--text-primary); font-weight:500;">MITRE ATT&CK Navigator <span class="tag tag-purple" style="font-size:11px; padding: 2px 8px;">2018</span></td>
+          <td>Framework for technique coverage mapping &amp; visualization</td>
+          <td style="color:var(--accent-amber)">Visualization only — no automated query generation</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td style="color:var(--text-primary); font-weight:500;">IBM QRadar Advisor + Watson</td>
+          <td>AI-assisted investigation enrichment using Watson NLP</td>
+          <td style="color:var(--accent-amber)">Limited to IBM QRadar; no cross-platform support</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td style="color:var(--text-primary); font-weight:500;">Park et al. (2024) — ACM Survey</td>
+          <td>"LLMs for Cybersecurity" — explores LLMs for log parsing & triage</td>
+          <td style="color:var(--accent-amber)">Focus on log analysis, not end-to-end agentic hunting</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td style="color:var(--text-primary); font-weight:500;">Shin et al. (2023) — IEEE Access</td>
+          <td>Systematic review of threat hunting methodologies</td>
+          <td style="color:var(--accent-amber)">Theoretical framework; no implementation or automation</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="highlight-box blue mt-16">
+    <h3 style="margin-bottom: 4px;">🎯 The Gap</h3>
+    <p style="font-size:17px;"><strong style="color:var(--text-primary)">No existing tool</strong> provides a vendor-agnostic, agentic AI that autonomously generates hypotheses, plans queries across <em>multiple</em> platforms, maintains human oversight, and iteratively refines its investigation in an OODA loop.</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SLIDE 5 — ARCHITECTURE
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-5">
+  <h2>System Architecture</h2>
+  <div style="flex:1; display:flex; gap:32px; align-items: center;">
+    <div class="arch-flow" style="flex: 1;">
+      <div class="arch-box" style="background: rgba(59,130,246,0.15); border-color: rgba(59,130,246,0.3);">
+        🧑‍💻 Analyst / Scheduler / Intel Alert
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-box" style="background: rgba(139,92,246,0.15); border-color: rgba(139,92,246,0.3);">
+        🧠 Hypothesis Engine <span style="font-size:12px; color:var(--text-muted)">(Google Gemini)</span>
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-box" style="background: rgba(6,182,212,0.15); border-color: rgba(6,182,212,0.3);">
+        📝 Query Planner → 🛡️ Safety Validator → ✅ Approval Gate
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-row">
+        <div class="arch-box-sm" style="background: rgba(239,68,68,0.1); border-color: rgba(239,68,68,0.2);">🛡 CrowdStrike</div>
+        <div class="arch-box-sm" style="background: rgba(245,158,11,0.1); border-color: rgba(245,158,11,0.2);">📊 Splunk</div>
+        <div class="arch-box-sm" style="background: rgba(59,130,246,0.1); border-color: rgba(59,130,246,0.2);">🔷 Sentinel</div>
+        <div class="arch-box-sm" style="background: rgba(16,185,129,0.1); border-color: rgba(16,185,129,0.2);">🔍 VirusTotal</div>
+        <div class="arch-box-sm" style="background: rgba(139,92,246,0.1); border-color: rgba(139,92,246,0.2);">🌐 MISP</div>
+      </div>
+      <div class="arch-arrow">↓</div>
+      <div class="arch-box" style="background: rgba(16,185,129,0.15); border-color: rgba(16,185,129,0.3);">
+        🔬 Evidence Aggregator + Confidence Scorer <span style="font-size:12px; color:var(--text-muted)">(Gemini)</span>
+      </div>
+      <div class="arch-arrow">↓ ↻ OODA Loop</div>
+      <div class="arch-box" style="background: rgba(245,158,11,0.15); border-color: rgba(245,158,11,0.3);">
+        📋 Hunt Report <span style="font-size:12px; color:var(--text-muted)">(PDF / JSON / Markdown)</span>
+      </div>
+    </div>
+    <div style="width: 320px;" class="flex-col gap-16">
+      <div class="card" style="padding:16px;">
+        <h3 style="font-size:15px;">Tech Stack</h3>
+        <div style="display:flex; flex-wrap:wrap; gap:6px; margin-top:8px;">
+          <span class="tag tag-blue" style="font-size:11px; padding:3px 10px;">Python 3.12</span>
+          <span class="tag tag-purple" style="font-size:11px; padding:3px 10px;">FastAPI</span>
+          <span class="tag tag-cyan" style="font-size:11px; padding:3px 10px;">Gemini LLM</span>
+          <span class="tag tag-green" style="font-size:11px; padding:3px 10px;">Celery</span>
+          <span class="tag tag-amber" style="font-size:11px; padding:3px 10px;">React 18</span>
+          <span class="tag tag-red" style="font-size:11px; padding:3px 10px;">PostgreSQL</span>
+          <span class="tag tag-blue" style="font-size:11px; padding:3px 10px;">Vault</span>
+          <span class="tag tag-purple" style="font-size:11px; padding:3px 10px;">OpenTelemetry</span>
+        </div>
+      </div>
+      <div class="card" style="padding:16px;">
+        <h3 style="font-size:15px;">Integrations</h3>
+        <p style="font-size:13px; line-height:1.8;">
+          <strong>EDR:</strong> CrowdStrike, SentinelOne, Defender<br>
+          <strong>SIEM:</strong> Splunk, Sentinel, Elastic<br>
+          <strong>Intel:</strong> MISP, VirusTotal, OpenCTI<br>
+          <strong>Playbooks:</strong> 5 built-in YAML playbooks
+        </p>
+      </div>
+      <div class="card" style="padding:16px;">
+        <h3 style="font-size:15px;">Database</h3>
+        <p style="font-size:13px; line-height:1.8;">
+          8 tables: Users, HuntSessions, Hypotheses, PlannedQueries, Evidence, HuntReports, AuditLogs, IntelCache
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SLIDE 6 — METHODOLOGY: 7-PHASE HUNT LOOP
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-6">
+  <h2>Methodology — 7-Phase OODA Hunt Loop</h2>
+  <div class="grid-2" style="flex:1;">
+    <div>
+      <div class="phase-item">
+        <div class="phase-num" style="background: var(--accent-blue);">1</div>
+        <div class="phase-content">
+          <h4>Hypothesize</h4>
+          <p>Gemini generates 3–5 ranked hypotheses mapped to MITRE ATT&CK tactics &amp; techniques</p>
+        </div>
+      </div>
+      <div class="phase-item">
+        <div class="phase-num" style="background: var(--accent-purple);">2</div>
+        <div class="phase-content">
+          <h4>Plan Queries</h4>
+          <p>LLM writes platform-specific queries (KQL, SPL, FQL) — each passes safety validation</p>
+        </div>
+      </div>
+      <div class="phase-item">
+        <div class="phase-num" style="background: var(--accent-green);">3</div>
+        <div class="phase-content">
+          <h4>Approval Gate</h4>
+          <p>Human analyst reviews & approves/rejects — RBAC enforced (approver/admin only)</p>
+        </div>
+      </div>
+      <div class="phase-item">
+        <div class="phase-num" style="background: var(--accent-cyan);">4</div>
+        <div class="phase-content">
+          <h4>Execute Queries</h4>
+          <p>Approved queries dispatched to EDR / SIEM / Intel via integration dispatcher</p>
+        </div>
+      </div>
+    </div>
+    <div>
+      <div class="phase-item">
+        <div class="phase-num" style="background: var(--accent-amber);">5</div>
+        <div class="phase-content">
+          <h4>Analyze Evidence</h4>
+          <p>LLM classifies evidence (confirming/contradicting/neutral), extracts IOCs, assigns confidence 0–100</p>
+        </div>
+      </div>
+      <div class="phase-item">
+        <div class="phase-num" style="background: var(--accent-red);">6</div>
+        <div class="phase-content">
+          <h4>Loop Decision</h4>
+          <p>Confidence &lt; 70% & iterations &lt; 5 → loop back to Phase 2. IR escalation if critical threat found.</p>
+        </div>
+      </div>
+      <div class="phase-item">
+        <div class="phase-num" style="background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));">7</div>
+        <div class="phase-content">
+          <h4>Report Generation</h4>
+          <p>Structured report (PDF / JSON / MD) with executive summary, IOC list, timeline, MITRE mapping</p>
+        </div>
+      </div>
+      <div class="highlight-box amber mt-16">
+        <p style="font-size: 15px;"><strong style="color: var(--accent-amber);">OODA Loop:</strong> Observe → Orient → Decide → Act. The hunt iterates until confidence threshold is met or max iterations reached.</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SLIDE 7 — SECURITY & SAFETY
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-7">
+  <h2>Security & Safety Design</h2>
+  <p style="font-size:18px; margin-bottom: 20px; color: var(--text-secondary);">
+    Every layer of ShadowHound is designed with security-first principles
+  </p>
+  <div class="grid-2" style="flex:1;">
+    <div class="card">
+      <h3>🛡️ Query Safety Validation</h3>
+      <p style="font-size:15px; margin-bottom:12px;">Regex-based blocklist prevents destructive operations before queries reach the approval gate</p>
+      <pre style="font-size:13px;">BLOCKED_PATTERNS = [
+  "drop", "delete", "truncate",
+  "insert", "update", "exec"
+]
+SPL_BLOCKED = [
+  "| outputlookup", "| collect",
+  "| sendemail", "| script"
+]
+KQL: "| invoke" → BLOCKED</pre>
+    </div>
+    <div class="card">
+      <h3>🔐 Authentication & RBAC</h3>
+      <p style="font-size:15px; margin-bottom:12px;">JWT-based auth with three-tier role hierarchy</p>
+      <table style="font-size:14px;">
+        <tr><td><span class="tag tag-blue" style="font-size:12px; padding:2px 10px;">analyst</span></td><td>Create hunts, view own hunts</td></tr>
+        <tr><td><span class="tag tag-amber" style="font-size:12px; padding:2px 10px;">approver</span></td><td>+ Approve/reject queries</td></tr>
+        <tr><td><span class="tag tag-red" style="font-size:12px; padding:2px 10px;">admin</span></td><td>+ User mgmt + audit logs</td></tr>
+      </table>
+    </div>
+    <div class="card">
+      <h3>📜 Immutable Audit Log</h3>
+      <p style="font-size:15px;">Every action logged with user identity, timestamp, payload hash, IP address, and user agent. Append-only — no edits or deletions allowed.</p>
+    </div>
+    <div class="card">
+      <h3>🧬 LLM Safety</h3>
+      <ul style="font-size:15px;">
+        <li>Structured JSON schemas constrain output</li>
+        <li>External data in separate message fields (anti prompt-injection)</li>
+        <li>Safety validator runs <em>after</em> LLM output</li>
+        <li>No raw security data persisted</li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SLIDE 8 — HUNT LIFECYCLE
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-8">
+  <h2>Hunt Session Lifecycle</h2>
+  <div style="flex:1; display:flex; flex-direction: column; justify-content: center; align-items: center;">
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;">
+      <div style="padding:12px 20px; border-radius:10px; background:rgba(100,116,139,0.15); border:1px solid rgba(100,116,139,0.3); font-weight:600; font-size:14px; text-align:center;">
+        PENDING
+      </div>
+      <span style="color:var(--text-muted); font-size:20px;">→</span>
+      <div style="padding:12px 20px; border-radius:10px; background:rgba(139,92,246,0.15); border:1px solid rgba(139,92,246,0.3); font-weight:600; font-size:14px; color:var(--accent-purple);">
+        HYPOTHESIZING
+      </div>
+      <span style="color:var(--text-muted); font-size:20px;">→</span>
+      <div style="padding:12px 20px; border-radius:10px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3); font-weight:600; font-size:14px; color:var(--accent-blue);">
+        PLANNING
+      </div>
+      <span style="color:var(--text-muted); font-size:20px;">→</span>
+      <div style="padding:12px 20px; border-radius:10px; background:rgba(245,158,11,0.15); border:1px solid rgba(245,158,11,0.3); font-weight:600; font-size:14px; color:var(--accent-amber);">
+        AWAITING_APPROVAL
+      </div>
+    </div>
+    <div style="color:var(--text-muted); font-size:20px; margin: 12px 0;">↓</div>
+    <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap; justify-content: center;">
+      <div style="padding:12px 20px; border-radius:10px; background:rgba(6,182,212,0.15); border:1px solid rgba(6,182,212,0.3); font-weight:600; font-size:14px; color:var(--accent-cyan);">
+        EXECUTING
+      </div>
+      <span style="color:var(--text-muted); font-size:20px;">→</span>
+      <div style="padding:12px 20px; border-radius:10px; background:rgba(16,185,129,0.15); border:1px solid rgba(16,185,129,0.3); font-weight:600; font-size:14px; color:var(--accent-green);">
+        ANALYZING
+      </div>
+      <span style="color:var(--text-muted); font-size:20px;">→</span>
+      <div style="padding:12px 16px; border-radius:10px; background:rgba(239,68,68,0.1); border:1px dashed rgba(239,68,68,0.3); font-weight:600; font-size:13px; color:var(--accent-red);">
+        ↻ Loop if confidence &lt; 70%
+      </div>
+      <span style="color:var(--text-muted); font-size:20px;">→</span>
+      <div style="padding:12px 20px; border-radius:10px; background:rgba(59,130,246,0.15); border:1px solid rgba(59,130,246,0.3); font-weight:600; font-size:14px;">
+        REPORTING
+      </div>
+      <span style="color:var(--text-muted); font-size:20px;">→</span>
+      <div style="padding:12px 20px; border-radius:10px; background:rgba(16,185,129,0.2); border:2px solid rgba(16,185,129,0.4); font-weight:700; font-size:14px; color:var(--accent-green);">
+        ✓ COMPLETED
+      </div>
+    </div>
+    <div class="grid-3 mt-24" style="width:100%; max-width: 900px;">
+      <div class="card" style="text-align:center; padding:16px;">
+        <div class="stat-number" style="font-size:32px; color:var(--accent-purple);">10</div>
+        <div class="stat-label">Status States</div>
+      </div>
+      <div class="card" style="text-align:center; padding:16px;">
+        <div class="stat-number" style="font-size:32px; color:var(--accent-green);">56/56</div>
+        <div class="stat-label">Tests Passing</div>
+      </div>
+      <div class="card" style="text-align:center; padding:16px;">
+        <div class="stat-number" style="font-size:32px; color:var(--accent-cyan);">8</div>
+        <div class="stat-label">Database Tables</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SLIDE 9 — EXPECTED OUTCOMES
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-9">
+  <h2>Expected Outcomes</h2>
+  <div class="grid-2" style="flex:1;">
+    <div class="flex-col gap-16">
+      <div class="card" style="display:flex; gap:16px; align-items:start;">
+        <div style="font-size:32px;">⚡</div>
+        <div>
+          <h3 style="font-size:17px;">70–80% Time Reduction</h3>
+          <p style="font-size:15px;">Manual hunt: 4–8 hours → ShadowHound: ~30 min of analyst review time</p>
+        </div>
+      </div>
+      <div class="card" style="display:flex; gap:16px; align-items:start;">
+        <div style="font-size:32px;">🌐</div>
+        <div>
+          <h3 style="font-size:17px;">Cross-Platform Hunting</h3>
+          <p style="font-size:15px;">One hunt session queries CrowdStrike, Splunk, Sentinel, VirusTotal, and MISP simultaneously</p>
+        </div>
+      </div>
+      <div class="card" style="display:flex; gap:16px; align-items:start;">
+        <div style="font-size:32px;">🎯</div>
+        <div>
+          <h3 style="font-size:17px;">Consistent MITRE ATT&CK Coverage</h3>
+          <p style="font-size:15px;">Every hypothesis mapped to specific techniques (T1059.001, T1078) — eliminating coverage gaps</p>
+        </div>
+      </div>
+    </div>
+    <div class="flex-col gap-16">
+      <div class="card" style="display:flex; gap:16px; align-items:start;">
+        <div style="font-size:32px;">📋</div>
+        <div>
+          <h3 style="font-size:17px;">Auditable, Governed Hunting</h3>
+          <p style="font-size:15px;">Complete audit trail — every action, approval, evidence correlation is logged and immutable</p>
+        </div>
+      </div>
+      <div class="card" style="display:flex; gap:16px; align-items:start;">
+        <div style="font-size:32px;">📊</div>
+        <div>
+          <h3 style="font-size:17px;">Structured Hunt Reports</h3>
+          <p style="font-size:15px;">PDF / JSON / Markdown with executive summary, IOC lists, threat timeline, MITRE mapping</p>
+        </div>
+      </div>
+      <div class="card" style="display:flex; gap:16px; align-items:start;">
+        <div style="font-size:32px;">🔄</div>
+        <div>
+          <h3 style="font-size:17px;">Iterative Refinement</h3>
+          <p style="font-size:15px;">OODA loop ensures investigations dig deeper — doesn't stop at surface-level findings</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SLIDE 10 — DEMO
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-10">
+  <h2>Live Demonstration</h2>
+  <div class="grid-2" style="flex:1;">
+    <div class="flex-col gap-16">
+      <div class="card">
+        <h3 style="font-size:16px;">1️⃣ API & Swagger Docs</h3>
+        <pre style="font-size:13px;">uvicorn main:app --reload --port 8000
+# → http://localhost:8000/docs</pre>
+        <p style="font-size:14px; margin-top:8px;">Interactive API with 15+ endpoints organized by domain</p>
+      </div>
+      <div class="card">
+        <h3 style="font-size:16px;">2️⃣ Authentication Flow</h3>
+        <pre style="font-size:13px;">POST /api/v1/auth/login
+{
+  "email": "admin@ps281.dev",
+  "password": "Admin@PS281Change!"
+}
+→ Returns JWT access + refresh tokens</pre>
+      </div>
+      <div class="card">
+        <h3 style="font-size:16px;">3️⃣ Create Hunt Session</h3>
+        <pre style="font-size:13px;">POST /api/v1/hunts
+{
+  "title": "Lateral Movement Hunt",
+  "trigger_type": "analyst_request",
+  "trigger_context": {
+    "description": "WMI process creation
+     on 3 endpoints"
+  }
+}</pre>
+      </div>
+    </div>
+    <div class="flex-col gap-16">
+      <div class="card">
+        <h3 style="font-size:16px;">4️⃣ Test Results</h3>
+        <pre style="font-size:13px;">$ pytest tests/ -v
+========================
+56 passed ✅ in 12.4s
+========================</pre>
+        <p style="font-size:14px; margin-top:8px;">Unit tests for auth, RBAC, query validation, hunt lifecycle, evidence aggregation</p>
+      </div>
+      <div class="card">
+        <h3 style="font-size:16px;">5️⃣ Project Structure</h3>
+        <pre style="font-size:13px; line-height:1.5;">shadowhound/
+├── agent/       # LLM engines
+│   ├── hypothesis_engine.py
+│   ├── query_planner.py
+│   ├── evidence_aggregator.py
+│   └── orchestrator.py
+├── api/         # REST endpoints
+├── integrations/ # 10 sources
+├── db/          # 8 tables
+└── dashboard/   # React 18</pre>
+      </div>
+      <div class="card" style="background: rgba(16,185,129,0.08); border-color: rgba(16,185,129,0.2);">
+        <h3 style="font-size:16px; color: var(--accent-green);">6️⃣ Key Highlight</h3>
+        <p style="font-size:15px;">5 built-in hunting playbooks covering:<br>
+        WMI Lateral Movement • Credential Dumping • Ransomware • Phishing • Persistence</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════════
+     SLIDE 11 — THANK YOU
+     ══════════════════════════════════════════════════════════════════ -->
+<div class="slide" id="slide-11">
+  <div style="flex:1; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center;">
+    <h1 style="font-size:56px;">
+      <span class="gradient-text">Thank You</span>
+    </h1>
+    <p class="subtitle" style="margin-top: 16px; font-size: 22px; max-width: 600px;">
+      ShadowHound brings agentic AI to proactive cybersecurity,<br>
+      keeping humans in the loop where it matters most.
+    </p>
+    <div style="margin-top: 48px; display:flex; gap:20px;">
+      <div class="card" style="padding:20px 32px; text-align:center;">
+        <div style="font-size:28px; margin-bottom:8px;">🧠</div>
+        <div style="font-size:14px; color:var(--text-muted);">LLM-Powered<br>Hypothesis Generation</div>
+      </div>
+      <div class="card" style="padding:20px 32px; text-align:center;">
+        <div style="font-size:28px; margin-bottom:8px;">🛡️</div>
+        <div style="font-size:14px; color:var(--text-muted);">Human-in-the-Loop<br>Governance</div>
+      </div>
+      <div class="card" style="padding:20px 32px; text-align:center;">
+        <div style="font-size:28px; margin-bottom:8px;">🔄</div>
+        <div style="font-size:14px; color:var(--text-muted);">Iterative OODA<br>Hunt Loop</div>
+      </div>
+      <div class="card" style="padding:20px 32px; text-align:center;">
+        <div style="font-size:28px; margin-bottom:8px;">📊</div>
+        <div style="font-size:14px; color:var(--text-muted);">Automated<br>Hunt Reports</div>
+      </div>
+    </div>
+    <p style="margin-top: 48px; font-size: 18px; color: var(--text-muted);">
+      Questions?
+    </p>
+  </div>
+</div>
+
+
+<script>
+  const slides = document.querySelectorAll('.slide');
+  let current = 0;
+  const total = slides.length;
+
+  function updateSlide() {
+    slides.forEach(s => s.classList.remove('active'));
+    slides[current].classList.add('active');
+    document.getElementById('slideNumber').textContent = `${current + 1} / ${total}`;
+    document.getElementById('progressBar').style.width = `${((current + 1) / total) * 100}%`;
+  }
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === ' ' || e.key === 'PageDown') {
+      e.preventDefault();
+      if (current < total - 1) { current++; updateSlide(); }
+    } else if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+      e.preventDefault();
+      if (current > 0) { current--; updateSlide(); }
+    } else if (e.key === 'Home') {
+      current = 0; updateSlide();
+    } else if (e.key === 'End') {
+      current = total - 1; updateSlide();
+    } else if (e.key === 'f' || e.key === 'F') {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen();
+      } else {
+        document.exitFullscreen();
+      }
+    }
+  });
+
+  // Touch/swipe for mobile
+  let touchStartX = 0;
+  document.addEventListener('touchstart', (e) => { touchStartX = e.changedTouches[0].screenX; });
+  document.addEventListener('touchend', (e) => {
+    const diff = touchStartX - e.changedTouches[0].screenX;
+    if (Math.abs(diff) > 50) {
+      if (diff > 0 && current < total - 1) { current++; updateSlide(); }
+      else if (diff < 0 && current > 0) { current--; updateSlide(); }
+    }
+  });
+
+  updateSlide();
+</script>
+
+</body>
+</html>

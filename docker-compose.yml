@@ -1,0 +1,158 @@
+
+services:
+
+  # ── PostgreSQL ──────────────────────────────────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: shadowhound_postgres
+    environment:
+      POSTGRES_USER: shadowhound
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: shadowhound
+    command: ["postgres", "-c", "listen_addresses=*"]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shadowhound -h localhost"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Redis ───────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: shadowhound_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Weaviate (vector store for playbooks) ───────────────────────────────────
+  weaviate:
+    image: semitechnologies/weaviate:1.24.4
+    container_name: shadowhound_weaviate
+    ports:
+      - "8080:8080"
+    environment:
+      QUERY_DEFAULTS_LIMIT: 25
+      AUTHENTICATION_ANONYMOUS_ACCESS_ENABLED: "true"
+      PERSISTENCE_DATA_PATH: /var/lib/weaviate
+      DEFAULT_VECTORIZER_MODULE: none
+    volumes:
+      - weaviate_data:/var/lib/weaviate
+
+  # ── HashiCorp Vault ─────────────────────────────────────────────────────────
+  vault:
+    image: hashicorp/vault:1.16
+    container_name: shadowhound_vault
+    ports:
+      - "8200:8200"
+    environment:
+      VAULT_DEV_ROOT_TOKEN_ID: root
+      VAULT_DEV_LISTEN_ADDRESS: "0.0.0.0:8200"
+    cap_add:
+      - IPC_LOCK
+    command: vault server -dev
+
+  # ── ShadowHound API ───────────────────────────────────────────────────────────────
+  api:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.api
+    container_name: shadowhound_api
+    env_file: .env.example
+    ports:
+      - "8000:8000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./reports:/app/reports
+      - ./data:/app/data
+    command: uvicorn main:app --host 0.0.0.0 --port 8000 --reload
+
+  # ── Celery Worker ───────────────────────────────────────────────────────────
+  worker:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.api
+    container_name: shadowhound_worker
+    env_file: .env.example
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./reports:/app/reports
+      - ./data:/app/data
+    command: celery -A agent.tasks.celery_app worker --loglevel=info --concurrency=4
+
+  # ── Celery Flower (monitor) ─────────────────────────────────────────────────
+  flower:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.api
+    container_name: shadowhound_flower
+    env_file: .env.example
+    ports:
+      - "5555:5555"
+    depends_on:
+      - redis
+      - worker
+    command: celery -A agent.tasks.celery_app flower --port=5555
+
+  # ── Dashboard ───────────────────────────────────────────────────────────────
+  dashboard:
+    build:
+      context: .
+      dockerfile: infra/Dockerfile.dashboard
+    container_name: shadowhound_dashboard
+    ports:
+      - "3000:80"
+    depends_on:
+      - api
+
+  # ── Grafana ─────────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.3.0
+    container_name: shadowhound_grafana
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./infra/grafana/dashboards:/etc/grafana/provisioning/dashboards
+      - ./infra/grafana/datasources:/etc/grafana/provisioning/datasources
+
+  # ── Loki (log aggregation) ──────────────────────────────────────────────────
+  loki:
+    image: grafana/loki:2.9.0
+    container_name: shadowhound_loki
+    ports:
+      - "3100:3100"
+    command: -config.file=/etc/loki/local-config.yaml
+
+  # ── OpenTelemetry Collector ─────────────────────────────────────────────────
+  otel-collector:
+    image: otel/opentelemetry-collector:0.96.0
+    container_name: shadowhound_otel
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./infra/otel-collector-config.yaml:/etc/otel-collector-config.yaml
+    ports:
+      - "4317:4317"   # OTLP gRPC
+      - "4318:4318"   # OTLP HTTP
+
+volumes:
+  postgres_data:
+  weaviate_data:
+  grafana_data:

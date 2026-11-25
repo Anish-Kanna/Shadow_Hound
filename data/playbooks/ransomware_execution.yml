@@ -1,0 +1,117 @@
+title: Ransomware Execution Detection
+description: |
+  Hunt for indicators of ransomware execution across the environment.
+  Covers shadow copy deletion, boot configuration changes, mass file
+  encryption patterns, ransom note creation, and inhibition of system recovery.
+author: ShadowHound Playbook Library
+created: 2024-01-15
+version: "1.0"
+
+tactics:
+  - Impact
+  - Defense Evasion
+
+tags:
+  - attack.t1486
+  - attack.t1490
+  - attack.t1070
+  - ransomware
+  - encryption
+  - windows
+
+mitre_attack:
+  techniques:
+    - id: T1486
+      name: Data Encrypted for Impact
+      description: Adversary encrypts files to demand ransom payment
+    - id: T1490
+      name: Inhibit System Recovery
+      description: Deletion of shadow copies, backup catalogs, or boot config changes
+
+severity: critical
+confidence_baseline: 75
+
+data_sources:
+  - crowdstrike
+  - sentinelone
+  - defender
+  - splunk
+  - elastic
+
+indicators:
+  suspicious_processes:
+    - vssadmin.exe delete shadows
+    - wmic shadowcopy delete
+    - bcdedit /set {default} recoveryenabled No
+    - bcdedit /set {default} bootstatuspolicy ignoreallfailures
+    - wbadmin delete catalog -quiet
+    - cipher /w
+    - icacls * /grant Everyone:F /T /C /Q
+
+  ransom_note_patterns:
+    - "README.txt"
+    - "DECRYPT_FILES.html"
+    - "HOW_TO_RECOVER.txt"
+    - "RANSOM_NOTE.txt"
+    - "!README!.txt"
+
+  file_extensions:
+    - ".encrypted"
+    - ".locked"
+    - ".crypt"
+    - ".enc"
+    - ".WNCRY"
+
+query_templates:
+  splunk: |
+    search index=endpoint
+      (process_name="vssadmin.exe" CommandLine="*delete*shadows*")
+      OR (process_name="wmic.exe" CommandLine="*shadowcopy*delete*")
+      OR (process_name="bcdedit.exe" CommandLine="*recoveryenabled*No*")
+      OR (process_name="wbadmin.exe" CommandLine="*delete*catalog*")
+    | stats count by host, user, process_name, CommandLine, _time
+    | sort -_time
+
+  kql: |
+    DeviceProcessEvents
+    | where Timestamp >= ago(7d)
+    | where (FileName == "vssadmin.exe" and ProcessCommandLine has_all ("delete", "shadows"))
+        or (FileName == "wmic.exe" and ProcessCommandLine has_all ("shadowcopy", "delete"))
+        or (FileName == "bcdedit.exe" and ProcessCommandLine has "recoveryenabled")
+        or (FileName == "wbadmin.exe" and ProcessCommandLine has_all ("delete", "catalog"))
+    | project Timestamp, DeviceName, AccountName, FileName, ProcessCommandLine
+    | sort by Timestamp desc
+
+  elastic: |
+    {
+      "query": {
+        "bool": {
+          "should": [
+            {"bool": {"must": [
+              {"term": {"process.name": "vssadmin.exe"}},
+              {"wildcard": {"process.command_line": "*delete*shadows*"}}
+            ]}},
+            {"bool": {"must": [
+              {"term": {"process.name": "bcdedit.exe"}},
+              {"wildcard": {"process.command_line": "*recoveryenabled*"}}
+            ]}},
+            {"bool": {"must": [
+              {"term": {"process.name": "wbadmin.exe"}},
+              {"wildcard": {"process.command_line": "*delete*catalog*"}}
+            ]}}
+          ],
+          "minimum_should_match": 1,
+          "filter": [
+            {"range": {"@timestamp": {"gte": "now-7d"}}}
+          ]
+        }
+      },
+      "size": 500
+    }
+
+response_actions:
+  - Isolate affected host immediately
+  - Preserve memory dump for forensic analysis
+  - Check backup integrity and availability
+  - Identify patient zero and initial access vector
+  - Block identified IOCs at perimeter

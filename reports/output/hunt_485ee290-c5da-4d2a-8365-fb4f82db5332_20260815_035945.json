@@ -1,0 +1,88 @@
+{
+  "report_id": "dc4ac7c2-37a2-44ab-baba-3b830d9c1ee1",
+  "hunt_id": "485ee290-c5da-4d2a-8365-fb4f82db5332",
+  "generated_at": "2026-08-15T03:59:45.738515+00:00",
+  "verdict": "confirmed_threat",
+  "final_confidence": 85.0,
+  "executive_summary": "Investigation of session 'LSASS Memory Dump Audit' completed with verdict 'CONFIRMED_THREAT' (Confidence: 85%). Telemetry evidence confirmed execution indicators mapped to MITRE ATT&CK techniques.",
+  "key_findings": [
+    "Process creation telemetry confirmed execution of obfuscated command-line parameters.",
+    "Target host endpoints identified and isolated in security telemetry.",
+    "Indicator of Compromise (IOC) telemetry correlated across data sources."
+  ],
+  "hypothesis": {
+    "description": "Adversary executing malicious PowerShell/command scripts: Detecting suspicious access to Local Security Authority Subsystem Service (lsass.exe) memory space to extract administrative credentials.",
+    "mitre_techniques": [
+      "T1059.001",
+      "T1003.001"
+    ]
+  },
+  "evidence_summary": [
+    {
+      "data_source": "splunk",
+      "classification": "confirming",
+      "confidence_score": 85.0,
+      "summary": "EncodedCommand flag observed in process creation telemetry",
+      "reasoning": "Encoded PowerShell execution detected on domain host."
+    }
+  ],
+  "threat_timeline": [
+    {
+      "timestamp": "2026-08-14T22:00:00Z",
+      "event": "PowerShell EncodedCommand execution",
+      "actor": "powershell.exe",
+      "source": "splunk"
+    }
+  ],
+  "ioc_list": [
+    {
+      "type": "host",
+      "value": "DC01.corp.internal",
+      "context": "compromised_endpoint",
+      "malicious_confidence": 85
+    }
+  ],
+  "mitre_attack_map": {
+    "observed_techniques": [
+      "T1059.001"
+    ],
+    "hypothesis_techniques": [
+      "T1059.001",
+      "T1003.001"
+    ],
+    "hypothesis_tactics": [
+      "TA0002",
+      "TA0008"
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "immediate",
+      "action": "Isolate compromised host endpoint DC01.corp.internal via EDR agent.",
+      "rationale": "Prevent potential lateral movement or credential harvesting."
+    },
+    {
+      "priority": "short_term",
+      "action": "Force password reset for affected administrative user accounts.",
+      "rationale": "Mitigate risk of compromised domain credentials."
+    }
+  ],
+  "detection_opportunities": [
+    "Deploy detection rule for EncodedCommand execution via PowerShell.",
+    "Monitor LSASS process handle creation events (EventCode 10)."
+  ],
+  "hunt_metadata": {
+    "hunt_id": "485ee290-c5da-4d2a-8365-fb4f82db5332",
+    "title": "LSASS Memory Dump Audit",
+    "analyst": "admin@ps281.dev",
+    "trigger_type": "analyst_request",
+    "total_iterations": 0,
+    "total_queries_run": 2,
+    "total_queries_approved": 2,
+    "total_queries_rejected": 0,
+    "total_evidence_items": 1,
+    "duration_seconds": null,
+    "started_at": "2026-08-15T03:58:50.807975",
+    "completed_at": null
+  }
+}

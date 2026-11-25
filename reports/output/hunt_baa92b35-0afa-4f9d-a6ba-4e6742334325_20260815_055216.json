@@ -1,0 +1,86 @@
+{
+  "report_id": "887a4504-a44a-4fe2-8d98-2500e916d0ad",
+  "hunt_id": "baa92b35-0afa-4f9d-a6ba-4e6742334325",
+  "generated_at": "2026-08-15T05:52:16.477618+00:00",
+  "verdict": "confirmed_threat",
+  "final_confidence": 90.0,
+  "executive_summary": "Investigation of session 'WMI Lateral Movement' completed with verdict 'CONFIRMED_THREAT' (Confidence: 90%). Telemetry evidence confirmed execution indicators mapped to MITRE ATT&CK techniques.",
+  "key_findings": [
+    "Process creation telemetry confirmed execution of obfuscated command-line parameters.",
+    "Target host endpoints identified and isolated in security telemetry.",
+    "Indicator of Compromise (IOC) telemetry correlated across data sources."
+  ],
+  "hypothesis": {
+    "description": "Adversary utilizing WMI command-line utility (wmic.exe) for lateral movement and remote execution",
+    "mitre_techniques": [
+      "T1047"
+    ]
+  },
+  "evidence_summary": [
+    {
+      "data_source": "splunk",
+      "classification": "confirming",
+      "confidence_score": 90.0,
+      "summary": "WMIC execution targeting remote node detected",
+      "reasoning": "WMI remote execution command (wmic.exe) detected in security telemetry."
+    }
+  ],
+  "threat_timeline": [
+    {
+      "timestamp": "2026-08-14T22:15:00Z",
+      "event": "wmic.exe process creation remotely",
+      "actor": "wmic.exe",
+      "source": "splunk"
+    }
+  ],
+  "ioc_list": [
+    {
+      "type": "host",
+      "value": "DC01.corp.internal",
+      "context": "target_endpoint",
+      "malicious_confidence": 90
+    }
+  ],
+  "mitre_attack_map": {
+    "observed_techniques": [
+      "T1047"
+    ],
+    "hypothesis_techniques": [
+      "T1047"
+    ],
+    "hypothesis_tactics": [
+      "TA0002",
+      "TA0008"
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "immediate",
+      "action": "Isolate compromised host endpoint DC01.corp.internal via EDR agent.",
+      "rationale": "Prevent potential lateral movement or credential harvesting."
+    },
+    {
+      "priority": "short_term",
+      "action": "Force password reset for affected administrative user accounts.",
+      "rationale": "Mitigate risk of compromised domain credentials."
+    }
+  ],
+  "detection_opportunities": [
+    "Deploy detection rule for EncodedCommand execution via PowerShell.",
+    "Monitor LSASS process handle creation events (EventCode 10)."
+  ],
+  "hunt_metadata": {
+    "hunt_id": "baa92b35-0afa-4f9d-a6ba-4e6742334325",
+    "title": "WMI Lateral Movement",
+    "analyst": "admin@ps281.dev",
+    "trigger_type": "analyst_request",
+    "total_iterations": 0,
+    "total_queries_run": 2,
+    "total_queries_approved": 2,
+    "total_queries_rejected": 0,
+    "total_evidence_items": 1,
+    "duration_seconds": null,
+    "started_at": "2026-08-15T05:50:53.046197",
+    "completed_at": null
+  }
+}

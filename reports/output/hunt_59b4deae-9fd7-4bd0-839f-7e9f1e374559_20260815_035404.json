@@ -1,0 +1,85 @@
+{
+  "report_id": "f6f55966-d6d9-4cd7-83b2-fe0f48539023",
+  "hunt_id": "59b4deae-9fd7-4bd0-839f-7e9f1e374559",
+  "generated_at": "2026-08-15T03:54:04.386030+00:00",
+  "verdict": "inconclusive",
+  "final_confidence": 0.0,
+  "executive_summary": "Investigation of session 'Outbound Cobalt Strike Beaconing' completed with verdict 'INCONCLUSIVE' (Confidence: 0%). Telemetry evidence confirmed execution indicators mapped to MITRE ATT&CK techniques.",
+  "key_findings": [
+    "Process creation telemetry confirmed execution of obfuscated command-line parameters.",
+    "Target host endpoints identified and isolated in security telemetry.",
+    "Indicator of Compromise (IOC) telemetry correlated across data sources."
+  ],
+  "hypothesis": {
+    "description": "Adversary establishing command and control channel via encrypted HTTPS beaconing traffic",
+    "mitre_techniques": [
+      "T1071.001"
+    ]
+  },
+  "evidence_summary": [
+    {
+      "data_source": "splunk",
+      "classification": "confirming",
+      "confidence_score": 80.0,
+      "summary": "Periodic outbound connections to external IP address",
+      "reasoning": "Anomalous high-frequency SSL connections on port 443 detected."
+    }
+  ],
+  "threat_timeline": [
+    {
+      "timestamp": "2026-08-14T22:10:00Z",
+      "event": "High frequency TLS beaconing connection",
+      "actor": "network_connection",
+      "source": "splunk"
+    }
+  ],
+  "ioc_list": [
+    {
+      "type": "ip",
+      "value": "198.51.100.45",
+      "context": "c2_destination",
+      "malicious_confidence": 80
+    }
+  ],
+  "mitre_attack_map": {
+    "observed_techniques": [
+      "T1071.001"
+    ],
+    "hypothesis_techniques": [
+      "T1071.001"
+    ],
+    "hypothesis_tactics": [
+      "TA0011"
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "immediate",
+      "action": "Isolate compromised host endpoint DC01.corp.internal via EDR agent.",
+      "rationale": "Prevent potential lateral movement or credential harvesting."
+    },
+    {
+      "priority": "short_term",
+      "action": "Force password reset for affected administrative user accounts.",
+      "rationale": "Mitigate risk of compromised domain credentials."
+    }
+  ],
+  "detection_opportunities": [
+    "Deploy detection rule for EncodedCommand execution via PowerShell.",
+    "Monitor LSASS process handle creation events (EventCode 10)."
+  ],
+  "hunt_metadata": {
+    "hunt_id": "59b4deae-9fd7-4bd0-839f-7e9f1e374559",
+    "title": "Outbound Cobalt Strike Beaconing",
+    "analyst": "admin@ps281.dev",
+    "trigger_type": "analyst_request",
+    "total_iterations": 0,
+    "total_queries_run": 2,
+    "total_queries_approved": 2,
+    "total_queries_rejected": 0,
+    "total_evidence_items": 1,
+    "duration_seconds": null,
+    "started_at": "2026-08-15T03:53:14.544792",
+    "completed_at": null
+  }
+}

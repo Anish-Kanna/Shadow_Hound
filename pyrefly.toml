@@ -1,0 +1,8 @@
+[tool.pyrefly]
+python_version = "3.13"
+search_path = [".", "./venv/Lib/site-packages"]
+
+# Suppress missing-import errors for third-party packages
+# that are installed in the venv but not visible to the linter
+[[tool.pyrefly.suppress]]
+codes = ["missing-import"]

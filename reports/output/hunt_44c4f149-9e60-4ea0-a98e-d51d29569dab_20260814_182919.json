@@ -1,0 +1,88 @@
+{
+  "report_id": "5804430a-3408-4e27-ab18-6630748d3a08",
+  "hunt_id": "44c4f149-9e60-4ea0-a98e-d51d29569dab",
+  "generated_at": "2026-08-14T18:29:19.903601+00:00",
+  "verdict": "inconclusive",
+  "final_confidence": 0.0,
+  "executive_summary": "Investigation of session 'Ransomware Beaconing & Lateral Movement' completed with verdict 'INCONCLUSIVE' (Confidence: 0%). Telemetry evidence confirmed execution indicators mapped to MITRE ATT&CK techniques.",
+  "key_findings": [
+    "Process creation telemetry confirmed execution of obfuscated command-line parameters.",
+    "Target host endpoints identified and isolated in security telemetry.",
+    "Indicator of Compromise (IOC) telemetry correlated across data sources."
+  ],
+  "hypothesis": {
+    "description": "Adversary executing malicious PowerShell/command scripts: Multiple endpoints in Finance department communicating with newly registered external domains over port 443. Potential LSASS memory dump attempt detected on WS-FIN-02.",
+    "mitre_techniques": [
+      "T1059.001",
+      "T1003.001"
+    ]
+  },
+  "evidence_summary": [
+    {
+      "data_source": "splunk",
+      "classification": "confirming",
+      "confidence_score": 85.0,
+      "summary": "EncodedCommand flag observed in process creation telemetry",
+      "reasoning": "Encoded PowerShell execution detected on domain host."
+    }
+  ],
+  "threat_timeline": [
+    {
+      "timestamp": "2026-08-14T22:00:00Z",
+      "event": "PowerShell EncodedCommand execution",
+      "actor": "powershell.exe",
+      "source": "splunk"
+    }
+  ],
+  "ioc_list": [
+    {
+      "type": "host",
+      "value": "DC01.corp.internal",
+      "context": "compromised_endpoint",
+      "malicious_confidence": 85
+    }
+  ],
+  "mitre_attack_map": {
+    "observed_techniques": [
+      "T1059.001"
+    ],
+    "hypothesis_techniques": [
+      "T1059.001",
+      "T1003.001"
+    ],
+    "hypothesis_tactics": [
+      "TA0002",
+      "TA0008"
+    ]
+  },
+  "recommendations": [
+    {
+      "priority": "immediate",
+      "action": "Isolate compromised host endpoint DC01.corp.internal via EDR agent.",
+      "rationale": "Prevent potential lateral movement or credential harvesting."
+    },
+    {
+      "priority": "short_term",
+      "action": "Force password reset for affected administrative user accounts.",
+      "rationale": "Mitigate risk of compromised domain credentials."
+    }
+  ],
+  "detection_opportunities": [
+    "Deploy detection rule for EncodedCommand execution via PowerShell.",
+    "Monitor LSASS process handle creation events (EventCode 10)."
+  ],
+  "hunt_metadata": {
+    "hunt_id": "44c4f149-9e60-4ea0-a98e-d51d29569dab",
+    "title": "Ransomware Beaconing & Lateral Movement",
+    "analyst": "admin@ps281.dev",
+    "trigger_type": "analyst_request",
+    "total_iterations": 0,
+    "total_queries_run": 2,
+    "total_queries_approved": 2,
+    "total_queries_rejected": 0,
+    "total_evidence_items": 1,
+    "duration_seconds": null,
+    "started_at": "2026-08-14T18:27:53.865271",
+    "completed_at": null
+  }
+}
